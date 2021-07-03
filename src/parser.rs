@@ -1,30 +1,16 @@
-#![allow(dead_code, unused_imports)]
+#![allow(dead_code)]
 
 use nom::branch::alt;
-use nom::bytes::complete::is_a;
 use nom::bytes::complete::take;
-use nom::bytes::complete::take_while;
-use nom::combinator::cond;
-use nom::combinator::map_res;
-use nom::combinator::value;
-use nom::InputTake;
 //use nom::complete::take;
-use nom::error::ContextError;
 use nom::IResult;
 //use nom::error::Error;
-use nom::error::ErrorKind;
-use nom::error::FromExternalError;
-use nom::error::ParseError;
-use nom::error::VerboseError;
-use nom::number::complete::le_u8;
 use nom::number::complete::{be_u16, le_u16};
-use nom::number::complete::{be_u32, le_u32};
-use nom::Err;
+use nom::number::complete::{be_u32, le_u8};
 use nom::Err::Error;
 use thiserror::Error as ThisError;
 //use nom::IResult;
 
-use crate::crc::check_crc;
 use crate::feig_types::FeigMessage;
 use crate::feig_types::TagRead;
 
