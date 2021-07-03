@@ -16,9 +16,9 @@ use nom::error::ErrorKind;
 use nom::error::FromExternalError;
 use nom::error::ParseError;
 use nom::error::VerboseError;
-use nom::number::complete::le_u32;
 use nom::number::complete::le_u8;
 use nom::number::complete::{be_u16, le_u16};
+use nom::number::complete::{be_u32, le_u32};
 use nom::Err;
 use nom::Err::Error;
 use thiserror::Error as ThisError;
@@ -152,7 +152,7 @@ pub fn parse_tag_read(input: &[u8]) -> IResult<&[u8], TagRead> {
     //idd
     let (input, idd) = take(idd_len)(input)?;
     //time
-    let (input, time) = le_u32(input)?;
+    let (input, time) = be_u32(input)?;
     //mac-addr
     let (input, mac) = take(6u8)(input)?;
     Ok((

@@ -23,6 +23,12 @@ mod tests {
         )
         .unwrap()
     }
+    fn get_data_message_with_multiple_tags() -> Vec<u8> {
+        hex::FromHex::from_hex(
+            "020046002200a1020002001d84000e30002016040500000000000020180008a6f4001c9b070957001d84000e34000008740000000000000013280008a6f4001c9b070957ea8c",
+        )
+        .unwrap()
+    }
     #[test]
     fn test_parse_keepalive() {
         let empty: &[u8] = &[];
@@ -156,6 +162,36 @@ mod tests {
     fn test_parse_unknown_message() {
         use crate::feig_types::TagRead;
         let fm = crate::parser::parse_message(&get_data_message());
+        let expected = FeigMessage::Data {
+            raw: [
+                2, 0, 41, 0, 34, 0, 161, 2, 0, 1, 0, 29, 132, 0, 14, 52, 0, 0, 8, 116, 0, 0, 0, 0,
+                0, 0, 0, 19, 40, 0, 19, 223, 117, 0, 28, 155, 7, 9, 87, 55, 14,
+            ]
+            .into(),
+            status: 0,
+            data: [TagRead {
+                record_len: 29,
+                transponder_type: 132,
+                idd_t: 0,
+                idd_len: 14,
+                serial_number: [52, 0, 0, 8, 116, 0, 0, 0, 0, 0, 0, 0, 19, 40].into(),
+                time: 1977553664,
+                mac: [0, 28, 155, 7, 9, 87].into(),
+            }]
+            .into(),
+            command_code: 34,
+            message_code: 2,
+            com_adr: 0,
+            crc: 3639,
+            len: 41,
+        };
+        assert_eq!(fm, expected);
+    }
+    #[test]
+    fn test_parse_unknown_message_with_multiple_tags() {
+        use crate::feig_types::TagRead;
+        let fm = crate::parser::parse_message(&get_data_message_with_multiple_tags());
+        dbg!(&fm);
         let expected = FeigMessage::Data {
             raw: [
                 2, 0, 41, 0, 34, 0, 161, 2, 0, 1, 0, 29, 132, 0, 14, 52, 0, 0, 8, 116, 0, 0, 0, 0,
