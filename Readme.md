@@ -10,7 +10,7 @@ Parses following data in following order from raw bytes:
 
 - [x] multiple tags in 1 message
 - [x] keepalives
-- [x] generics
+- [x] generics (fallback)
 - [ ] _understand_ (e.g. temperature alarm) keepalive codes
   - [ ] how to test?
 - [ ] handle feig date format (similar to franke date)
