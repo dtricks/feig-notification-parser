@@ -10,7 +10,7 @@ use nom::number::complete::{be_u32, le_u8};
 use nom::Err::Error;
 //use nom::IResult;
 
-use crate::crc::{calculate_crc, check_crc};
+use crate::crc::check_crc;
 use crate::feig_types::{FeigMessage, TransponderType};
 use crate::feig_types::{TagRead, IDDT};
 
