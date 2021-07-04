@@ -1,6 +1,6 @@
 # Feig Notification Parser
 
-Parses following data in following order from raw bytes:
+Parses following data in following priority order from raw bytes:
 
 1. Data (Tags)
 1. Keepalive
@@ -11,6 +11,8 @@ Parses following data in following order from raw bytes:
 - [x] multiple tags in 1 message
 - [x] keepalives
 - [x] generics (fallback)
-- [ ] _understand_ (e.g. temperature alarm) keepalive codes
-  - [ ] how to test?
+- [x] _understand_ (e.g. temperature alarm) keepalive codes
+  - [ ] how to test with hw?
 - [ ] handle feig date format (similar to franke date)
+- [ ] remove additional Raw field when ready
+  - [ ] remove also raw keepalive_flags when ready
