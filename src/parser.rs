@@ -8,21 +8,17 @@ use nom::IResult;
 use nom::number::complete::{be_u16, le_u16};
 use nom::number::complete::{be_u32, le_u8};
 use nom::Err::Error;
-use thiserror::Error as ThisError;
 //use nom::IResult;
 
-use crate::feig_types::FeigMessage;
-use crate::feig_types::TagRead;
+use crate::crc::{calculate_crc, check_crc};
+use crate::feig_types::{FeigMessage, TransponderType};
+use crate::feig_types::{TagRead, IDDT};
 
-#[derive(Debug, PartialEq, ThisError)]
-pub enum FeigError {
-    //<I> {
-    #[error("WrongCrc")]
-    WrongCrc,
-    #[error("WrongMessageCode")]
-    WrongMessageCode,
-    //Nom(I, ErrorKind),
-}
+const MASK_TEMP_ALARM: u8 = 0b1000_0000;
+const MASK_FALSE_POWER: u8 = 0b0001_0000;
+const MASK_WRONG_ANTENNA_IMPEDANCE: u8 = 0b0000_0100;
+const MASK_NOISE: u8 = 0b0000_0010;
+const MASK_DC_POWER_ERROR: u8 = 0b0000_0100;
 
 pub fn parse_keepalive(input: &[u8]) -> IResult<&[u8], FeigMessage> {
     let raw = input.clone();
@@ -30,9 +26,23 @@ pub fn parse_keepalive(input: &[u8]) -> IResult<&[u8], FeigMessage> {
     let (input, len) = get_message_length(input)?;
     let (input, com_adr) = get_com_adr(input)?;
     let (input, command_code) = get_command_code(input)?;
+    if command_code[0] != 0x6e {
+        return Err(Error(nom::error::Error::new(
+            command_code,
+            nom::error::ErrorKind::Not,
+        )));
+    }
     let (input, status) = get_status(input)?;
     let (input, keepalive_data) = get_keepalive_data(input)?;
+    let flag_temp_alarm = parse_bit_pattern(&keepalive_data[0], &MASK_TEMP_ALARM);
+    let flag_false_power = parse_bit_pattern(&keepalive_data[0], &MASK_FALSE_POWER);
+    let flag_wrong_antenna_impedance =
+        parse_bit_pattern(&keepalive_data[0], &MASK_WRONG_ANTENNA_IMPEDANCE);
+    let flag_noise = parse_bit_pattern(&keepalive_data[0], &MASK_NOISE);
+    let flag_dc_power_error = parse_bit_pattern(&keepalive_data[1], &MASK_DC_POWER_ERROR);
+
     let (input, crc) = get_crc(input)?;
+    let correct_crc = check_crc(&raw[..(raw.len() - 2)], crc);
     Ok((
         input,
         FeigMessage::Keepalive {
@@ -45,20 +55,18 @@ pub fn parse_keepalive(input: &[u8]) -> IResult<&[u8], FeigMessage> {
             crc,
             len,
             message_code: message_code[0],
+            flag_temp_alarm,
+            flag_false_power,
+            flag_wrong_antenna_impedance,
+            flag_dc_power_error,
+            flag_noise,
+            correct_crc,
         },
     ))
 }
 
 pub fn check_message_code(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take(1u8)(input)
-}
-
-pub fn check_message_code_equals_two(input: &[u8]) -> IResult<&[u8], bool, FeigError> {
-    if input[0] == 2 {
-        Ok((input, true))
-    } else {
-        Err(Error(FeigError::WrongMessageCode))
-    }
 }
 
 pub fn get_message_length(input: &[u8]) -> IResult<&[u8], u16> {
@@ -97,6 +105,12 @@ pub fn parse_data_message(input: &[u8]) -> IResult<&[u8], FeigMessage> {
     let (input, len) = get_message_length(input)?;
     let (input, com_adr) = get_com_adr(input)?;
     let (input, command_code) = get_command_code(input)?;
+    if command_code[0] != 0x22 {
+        return Err(Error(nom::error::Error::new(
+            command_code,
+            nom::error::ErrorKind::Not,
+        )));
+    }
     let (input, status) = get_status(input)?;
     let (input, _a1) = le_u8(input)?;
     let (input, _nf) = le_u8(input)?;
@@ -109,17 +123,19 @@ pub fn parse_data_message(input: &[u8]) -> IResult<&[u8], FeigMessage> {
         tags.push(tr);
     }
     let (input, crc) = get_crc(input)?;
+    let correct_crc = check_crc(&raw[..(raw.len() - 2)], crc);
     Ok((
         input,
         FeigMessage::Data {
             raw: raw.into(),
             status: status[0],
-            data: tags,
+            tags,
             command_code: command_code[0],
             message_code: message_code[0],
             com_adr: com_adr[0],
             crc,
             len,
+            correct_crc,
         },
     ))
 }
@@ -130,9 +146,20 @@ pub fn parse_tag_read(input: &[u8]) -> IResult<&[u8], TagRead> {
     //count u16 0001
     let (input, record_len) = get_message_length(input)?;
     //transponder type
-    let (input, tt) = le_u8(input)?;
+    let (input, ttu8) = le_u8(input)?;
+    let tt = match ttu8 {
+        0x01u8 => TransponderType::ICode1,
+        0x03u8 => TransponderType::Iso15693Tag,
+        0x84u8 => TransponderType::Iso18000_3M3,
+        x => TransponderType::Unknown(x),
+    };
     //idd type
-    let (input, it) = le_u8(input)?;
+    let (input, itu8) = le_u8(input)?;
+    let it = match itu8 {
+        0x00u8 => IDDT::EPC,
+        0x02u8 => IDDT::UID,
+        x => IDDT::Unknown(x),
+    };
     //idd len
     let (input, idd_len) = le_u8(input)?;
     //idd
@@ -141,6 +168,10 @@ pub fn parse_tag_read(input: &[u8]) -> IResult<&[u8], TagRead> {
     let (input, time) = be_u32(input)?;
     //mac-addr
     let (input, mac) = take(6u8)(input)?;
+    let mac = format!(
+        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+    );
     Ok((
         input,
         TagRead {
@@ -155,6 +186,10 @@ pub fn parse_tag_read(input: &[u8]) -> IResult<&[u8], TagRead> {
     ))
 }
 
+pub fn parse_bit_pattern(input: &u8, bit_pattern: &u8) -> bool {
+    input & bit_pattern == *bit_pattern
+}
+
 pub fn get_tag_count(input: &[u8]) -> IResult<&[u8], u16> {
     be_u16(input)
 }
@@ -167,6 +202,6 @@ pub fn parse_message<'a>(input: &'a [u8]) -> FeigMessage {
     let raw = input.clone();
     match alt((parse_data_message, parse_keepalive))(input) {
         Ok(o) => o.1,
-        Err(e) => FeigMessage::Generic(raw.into()),
+        Err(_e) => FeigMessage::Generic(raw.into()),
     }
 }

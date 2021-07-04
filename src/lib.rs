@@ -8,7 +8,7 @@ mod tests {
 
     use crate::{
         crc::*,
-        feig_types::FeigMessage,
+        feig_types::{FeigMessage, TransponderType},
         parser::{check_message_code, get_message_length, parse_message},
     };
     const KEEPALIVE_MESSAGE: [u8; 10] =
@@ -80,7 +80,10 @@ mod tests {
     #[test]
     fn test_crc() {
         let correct_crc = 0x694b;
-        assert_eq!(calculate_crc(&KEEPALIVE_MESSAGE[0..8]), correct_crc)
+        assert_eq!(
+            calculate_crc(&KEEPALIVE_MESSAGE[0..KEEPALIVE_MESSAGE.len() - 2]),
+            correct_crc
+        )
     }
 
     #[test]
@@ -110,7 +113,7 @@ mod tests {
                 FeigMessage::Data {
                     raw,
                     status,
-                    data,
+                    tags,
                     command_code,
                     message_code,
                     com_adr,
@@ -144,5 +147,23 @@ mod tests {
                     && dbg!(flag_dc_power_error),
             _ => false,
         })
+    }
+    #[test]
+    fn test_transponder_type_parsing() {
+        assert!(match parse_message(&get_data_message()) {
+            FeigMessage::Data { tags, .. } => match tags.get(0).unwrap().transponder_type {
+                TransponderType::Iso18000_3M3 => true,
+                _ => false,
+            },
+            _ => false,
+        })
+    }
+    #[test]
+    fn test_serde() {
+        use serde_json;
+        let fm = parse_message(&get_data_message());
+        let serde = serde_json::ser::to_string_pretty(&fm).unwrap();
+        println!("{}", serde);
+        assert!(serde.contains("Iso18000_3M3"))
     }
 }

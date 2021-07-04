@@ -16,3 +16,4 @@ Parses following data in following priority order from raw bytes:
 - [ ] handle feig date format (similar to franke date)
 - [ ] remove additional Raw field when ready
   - [ ] remove also raw keepalive_flags when ready
+- [x] add serde serialize to types
