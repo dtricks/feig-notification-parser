@@ -1,5 +1,5 @@
 [package]
-name = "feig-notigication-parser"
+name = "feig-notification-parser"
 version = "0.1.0"
 authors = ["Denis Kerner <dtricks@live.de>"]
 edition = "2018"
