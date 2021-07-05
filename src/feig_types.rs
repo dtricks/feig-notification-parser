@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 #[derive(Debug, Eq, PartialEq, PartialOrd, Serialize)]
@@ -57,4 +59,17 @@ pub enum IDDT {
     Unknown(u8),
     EPC,
     UID,
+}
+
+impl FeigMessage {
+    pub fn as_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    pub fn as_json_with_reader_role(&self, role: &str) -> Result<String, serde_json::Error> {
+        let mut hm = HashMap::new();
+        hm.insert("role", serde_json::value::to_value(role)?);
+        hm.insert("data", serde_json::value::to_value(self)?);
+        serde_json::to_string(&hm)
+    }
 }

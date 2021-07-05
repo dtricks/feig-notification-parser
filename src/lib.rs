@@ -1,6 +1,6 @@
 mod crc;
-mod feig_types;
-mod parser;
+pub mod feig_types;
+pub mod parser;
 
 #[cfg(test)]
 mod tests {
