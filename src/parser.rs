@@ -141,8 +141,10 @@ pub fn parse_data_message(input: &[u8]) -> IResult<&[u8], FeigMessage> {
 }
 
 pub fn parse_tag_read(input: &[u8]) -> IResult<&[u8], TagRead> {
-    // 02 00 01 | 001d 84 00 0e 3400000874000000000000001328 14207e9d 001c9b070957 8ab2
-    // nf st cc | coun tt it len                         idd     time          mac  crc
+    // 02 00 01 | 001d 84 00 0e 34 00 000874000000000000001328 14207e9d 001c9b070957 8ab2
+    // 02 00 01 | 001d 84 00 0e 34 00 300833b2ddd9014000000000 01145870 001c9b070957 b172
+    // 02 00 01   001d 84 00 0e 30 00 e28011606000020786c03815 -000aae47001c9b07095759df
+    // nf st cc | rlen tt it len                         idd     time          mac  crc
     //count u16 0001
     let (input, record_len) = get_message_length(input)?;
     //transponder type
@@ -162,8 +164,16 @@ pub fn parse_tag_read(input: &[u8]) -> IResult<&[u8], TagRead> {
     };
     //idd len
     let (input, idd_len) = le_u8(input)?;
+    if idd_len < 2 {
+        return Err(Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Not,
+        )));
+    }
+    // 2021-07-15 discard partition size
+    let (input, _epc_memory_partition_size) = le_u16(input)?;
     //idd
-    let (input, idd) = take(idd_len)(input)?;
+    let (input, idd) = take(idd_len - 2)(input)?;
     //time
     let (input, time) = be_u32(input)?;
     //mac-addr
